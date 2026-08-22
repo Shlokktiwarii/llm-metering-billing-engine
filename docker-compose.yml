@@ -5,7 +5,7 @@ services:
     image: postgres:16
 
     container_name: metering-postgres
-
+    
     restart: always
 
     environment:
