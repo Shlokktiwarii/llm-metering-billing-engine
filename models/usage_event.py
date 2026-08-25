@@ -1,15 +1,15 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Text, TIMESTAMP, ForeignKey
+from sqlalchemy import Integer, Text, TIMESTAMP, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from database import Base
+from db import Base
 
 
-class Subscription(Base):
-    __tablename__ = "subscriptions"
+class UsageEvent(Base):
+    __tablename__ = "usage_events"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -23,29 +23,15 @@ class Subscription(Base):
         nullable=False
     )
 
-    plan_id: Mapped[str] = mapped_column(
-        Text,
-        ForeignKey("plans.id"),
-        nullable=False
-    )
-
-    stripe_subscription_id: Mapped[str | None] = mapped_column(
-        Text,
-        nullable=True,
-        unique=True
-    )
-
-    status: Mapped[str] = mapped_column(
+    metric_name: Mapped[str] = mapped_column(
         Text,
         nullable=False
     )
 
-    current_period_start: Mapped[datetime | None] = mapped_column(
-        TIMESTAMP(timezone=True)
-    )
-
-    current_period_end: Mapped[datetime | None] = mapped_column(
-        TIMESTAMP(timezone=True)
+    quantity: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1
     )
 
     created_at: Mapped[datetime] = mapped_column(
@@ -54,18 +40,7 @@ class Subscription(Base):
         default=datetime.utcnow
     )
 
-    updated_at: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=True),
-        nullable=False,
-        default=datetime.utcnow
-    )
-
     tenant = relationship(
         "Tenant",
-        back_populates="subscriptions"
-    )
-
-    plan = relationship(
-        "Plan",
-        back_populates="subscriptions"
+        back_populates="usage_events"
     )

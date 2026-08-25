@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import Text, TIMESTAMP
 from sqlalchemy.orm import Mapped, mapped_column
 
-from database import Base
+from db import Base
 
 
 class ProcessedWebhookEvent(Base):

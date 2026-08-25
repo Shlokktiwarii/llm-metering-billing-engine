@@ -1,3 +1,3 @@
-from database import Base
+from db import Base
 
 __all__ = ["Base"]

@@ -1,3 +1,4 @@
+alembic==1.17.1
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.14.2
@@ -38,6 +39,7 @@ propcache==0.5.2
 psycopg2-binary==2.9.12
 pycparser==3.0
 pydantic==2.13.4
+pydantic-settings==2.11.0
 pydantic_core==2.46.4
 PyJWT==2.13.0
 python-dotenv==1.2.2

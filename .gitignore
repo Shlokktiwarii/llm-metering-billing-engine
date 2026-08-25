@@ -3,19 +3,34 @@ _# Virtual Environment
 venv/
 env/
 
-# Python
+# Python cache
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 
-# Environment
+# Environment variables
 .env
+.env.*
+!.env.example
 
-# Pytest
+# Testing
 .pytest_cache/
+.coverage
+htmlcov/
+
 
 # IDE
 .vscode/
 .idea/
 
-# macOS
+# os files
 .DS_Store
+Thumbs.db
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
