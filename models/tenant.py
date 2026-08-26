@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Text, TIMESTAMP, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
@@ -19,7 +19,8 @@ class Tenant(Base):
 
     name: Mapped[str] = mapped_column(
         Text,
-        nullable=False
+        nullable=False,
+        default=lambda: f"tenant-{uuid.uuid4().hex[:8]}"
     )
 
     plan_id: Mapped[str] = mapped_column(
@@ -32,7 +33,8 @@ class Tenant(Base):
     api_key_hash: Mapped[str] = mapped_column(
         Text,
         nullable=False,
-        unique=True
+        unique=True,
+        default=lambda: f"api-key-{uuid.uuid4().hex}"
     )
 
     stripe_customer_id: Mapped[str | None] = mapped_column(
@@ -44,7 +46,7 @@ class Tenant(Base):
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
-        default=datetime.utcnow
+        default=lambda: datetime.now(timezone.utc)
     )
 
     plan = relationship(
