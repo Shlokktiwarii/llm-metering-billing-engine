@@ -26,6 +26,11 @@ class UsageEvent(Base):
         Text,
         nullable=False
     )
+    
+    token_category: Mapped[str | None] = mapped_column(
+    Text,
+    nullable=True,
+    )
 
     quantity: Mapped[int] = mapped_column(
         Integer,

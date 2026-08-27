@@ -70,12 +70,14 @@ def test_get_current_usage():
             UsageEvent(
                 tenant_id=tenant_id,
                 metric_name="ai_token",
+                token_category="input",
                 quantity=500,
                 idempotency_key="billing-test-token-1",
             ),
             UsageEvent(
                 tenant_id=tenant_id,
                 metric_name="ai_token",
+                token_category="cached_input",
                 quantity=1000,
                 idempotency_key="billing-test-token-2",
             ),
