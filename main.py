@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from routes.generate import router as generate_router
+from routes.usage import router as usage_router
 
 app = FastAPI(
     title="Usage Metering & Billing Engine",
@@ -15,3 +16,4 @@ def health_check():
     }
 
 app.include_router(generate_router)
+app.include_router(usage_router)
