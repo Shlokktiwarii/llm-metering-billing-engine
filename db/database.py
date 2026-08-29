@@ -52,3 +52,15 @@ SessionLocal = SessionLocalFactory(
     autoflush=False,
     autocommit=False,
 )
+
+
+def get_db():
+    db = SessionLocal()
+
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+__all__ = ["Base", "SessionLocal", "engine", "get_db"]

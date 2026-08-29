@@ -1,15 +1,7 @@
 from fastapi import FastAPI
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
-from core.config import settings
+from routes.generate import router as generate_router
 
-
-engine = create_engine(settings.DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = DeclarativeBase()
-
-print(settings.DATABASE_URL)
 app = FastAPI(
     title="Usage Metering & Billing Engine",
     version="1.0.0",
@@ -19,5 +11,7 @@ app = FastAPI(
 def health_check():
     return {
         "status": "running",
-        "service": "Usage Metering & Billing Engine"
+        "service": "Usage Metering & Billing Engine",
     }
+
+app.include_router(generate_router)

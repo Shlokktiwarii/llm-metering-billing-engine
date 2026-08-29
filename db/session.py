@@ -1,10 +1,3 @@
-from db.database import SessionLocal
+from db.database import SessionLocal, get_db
 
-def get_db():
-    db = SessionLocal()
-
-    try:
-        yield db
-
-    finally:
-        db.close()
+__all__ = ["SessionLocal", "get_db"]
