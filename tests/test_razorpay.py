@@ -1,23 +1,19 @@
-from services.razorpay_service import RazorpayService
+import requests
+
+from core.config import settings
 
 
-def test_razorpay_connection():
-    razorpay = RazorpayService()
+def test_razorpay_auth():
+    response = requests.get(
+        "https://api.razorpay.com/v1/payments?count=1",
+        auth=(
+            settings.RAZORPAY_KEY_ID,
+            settings.RAZORPAY_KEY_SECRET,
+        ),
+    )
 
-    try:
-        result = razorpay.create_plan(
-            name="Test Plan",
-            amount_cents=10000,
-        )
+    print("\nSTATUS:", response.status_code)
+    print("RESPONSE:", response.text)
 
-        print("\nRAZORPAY RESPONSE:")
-        print(result)
-
-        assert result["id"].startswith("plan_")
-
-    except Exception as e:
-        print("\nRAZORPAY ERROR:")
-        print(type(e))
-        print(e)
-
+    assert response.status_code == 200
         
