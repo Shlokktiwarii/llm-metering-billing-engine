@@ -9,7 +9,7 @@ from db import Base
 class ProcessedWebhookEvent(Base):
     __tablename__ = "processed_webhook_events"
 
-    stripe_event_id: Mapped[str] = mapped_column(
+    razorpay_event_id: Mapped[str] = mapped_column(
         Text,
         primary_key=True
     )

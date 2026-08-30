@@ -37,7 +37,7 @@ class Tenant(Base):
         default=lambda: f"api-key-{uuid.uuid4().hex}"
     )
 
-    stripe_customer_id: Mapped[str | None] = mapped_column(
+    razorpay_customer_id: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         unique=True

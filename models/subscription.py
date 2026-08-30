@@ -29,7 +29,7 @@ class Subscription(Base):
         nullable=False
     )
 
-    stripe_subscription_id: Mapped[str | None] = mapped_column(
+    razorpay_subscription_id: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         unique=True

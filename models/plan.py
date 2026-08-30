@@ -26,7 +26,7 @@ class Plan(Base):
         default=0
     )
 
-    stripe_price_id: Mapped[str | None] = mapped_column(
+    razorpay_plan_id: Mapped[str | None] = mapped_column(
         Text,
         nullable=True
     )
