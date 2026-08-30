@@ -20,7 +20,6 @@ class MeterService:
         quantity: int,
     ) -> bool:
 
-        # Find the tenant's active subscription
         subscription = (
             self.db.query(Subscription)
             .filter(
@@ -33,10 +32,8 @@ class MeterService:
         if subscription is None:
             raise ValueError("No active subscription found")
 
-        # Get the plan attached to the subscription
         plan = subscription.plan
 
-        # Select the correct quota
         if metric_name == "api_call":
             quota = plan.api_call_quota
 
@@ -48,7 +45,6 @@ class MeterService:
                 f"Unknown metric name: {metric_name}"
             )
 
-        # Calculate current usage in the current billing period
         current_usage = (
             self.db.query(
                 func.coalesce(
@@ -67,7 +63,6 @@ class MeterService:
             .scalar()
         )
 
-        # Check whether the new usage would exceed the quota
         if current_usage + quantity > quota:
             return False
 
@@ -80,9 +75,8 @@ class MeterService:
         quantity: int,
         idempotency_key: str,
     ):
-
         # -------------------------------------------------
-        # 1. Check whether this request was already processed
+        # 1. Check idempotency
         # -------------------------------------------------
 
         existing_event = (
@@ -95,22 +89,73 @@ class MeterService:
         )
 
         if existing_event is not None:
-            # Retry → return the original event
             return existing_event, False
 
         # -------------------------------------------------
-        # 2. Check quota
+        # 2. Lock the active subscription
         # -------------------------------------------------
 
-        if not self.check_quota(
-            tenant_id=tenant_id,
-            metric_name=metric_name,
-            quantity=quantity,
-        ):
+        subscription = (
+            self.db.query(Subscription)
+            .filter(
+                Subscription.tenant_id == tenant_id,
+                Subscription.status == "active",
+            )
+            .with_for_update()
+            .first()
+        )
+
+        if subscription is None:
+            raise ValueError("No active subscription found")
+
+        # -------------------------------------------------
+        # 3. Get quota
+        # -------------------------------------------------
+
+        plan = subscription.plan
+
+        if metric_name == "api_call":
+            quota = plan.api_call_quota
+
+        elif metric_name == "ai_token":
+            quota = plan.ai_token_quota
+
+        else:
+            raise ValueError(
+                f"Unknown metric name: {metric_name}"
+            )
+
+        # -------------------------------------------------
+        # 4. Calculate current usage
+        # -------------------------------------------------
+
+        current_usage = (
+            self.db.query(
+                func.coalesce(
+                    func.sum(UsageEvent.quantity),
+                    0,
+                )
+            )
+            .filter(
+                UsageEvent.tenant_id == tenant_id,
+                UsageEvent.metric_name == metric_name,
+                UsageEvent.created_at
+                >= subscription.current_period_start,
+                UsageEvent.created_at
+                < subscription.current_period_end,
+            )
+            .scalar()
+        )
+
+        # -------------------------------------------------
+        # 5. Atomic quota decision
+        # -------------------------------------------------
+
+        if current_usage + quantity > quota:
             raise ValueError("Usage quota exceeded")
 
         # -------------------------------------------------
-        # 3. Create usage event
+        # 6. Create usage event
         # -------------------------------------------------
 
         event = UsageEvent(
@@ -123,19 +168,16 @@ class MeterService:
         self.db.add(event)
 
         # -------------------------------------------------
-        # 4. Save to database
+        # 7. Commit
         # -------------------------------------------------
 
         try:
             self.db.commit()
             self.db.refresh(event)
 
-            # True = newly created
             return event, True
 
         except IntegrityError:
-            # Another request may have created the same
-            # idempotency key at the same time.
             self.db.rollback()
 
             existing_event = (
@@ -150,5 +192,4 @@ class MeterService:
             if existing_event is None:
                 raise
 
-            # False = duplicate/retry
             return existing_event, False

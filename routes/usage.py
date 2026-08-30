@@ -55,5 +55,4 @@ def get_usage(
             "used": usage["ai_tokens"],
             "limit": plan.ai_token_quota,
         },
-        "cost_cents": usage["cost_cents"],
     }
