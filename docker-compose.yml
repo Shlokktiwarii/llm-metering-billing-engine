@@ -1,11 +1,8 @@
-version: "3.9"
-
 services:
+
   postgres:
     image: postgres:16
-
     container_name: metering-postgres
-    
     restart: always
 
     environment:
@@ -18,10 +15,116 @@ services:
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d metering_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+
   redis:
     image: redis:7-alpine
     container_name: metering-redis
+    restart: always
+
     ports:
       - "6379:6379"
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+
+  api:
+    build: .
+    container_name: metering-api
+    restart: always
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/metering_db
+      REDIS_URL: redis://redis:6379/0
+
+    ports:
+      - "8000:8000"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    command:
+      [
+        "uvicorn",
+        "main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000"
+      ]
+
+
+  celery-worker:
+    build: .
+    container_name: metering-celery-worker
+    restart: always
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/metering_db
+      REDIS_URL: redis://redis:6379/0
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    command:
+      [
+        "celery",
+        "-A",
+        "celery_app.celery_app",
+        "worker",
+        "--loglevel=info"
+      ]
+
+
+  celery-beat:
+    build: .
+    container_name: metering-celery-beat
+    restart: always
+
+    env_file:
+      - .env
+
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/metering_db
+      REDIS_URL: redis://redis:6379/0
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    command:
+      [
+        "celery",
+        "-A",
+        "celery_app.celery_app",
+        "beat",
+        "--loglevel=info"
+      ]
+
+
 volumes:
   postgres_data:
