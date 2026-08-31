@@ -69,11 +69,12 @@ class MeterService:
         return True
 
     def record(
-        self,
-        tenant_id: UUID,
-        metric_name: str,
-        quantity: int,
-        idempotency_key: str,
+      self,
+      tenant_id: UUID,
+      metric_name: str,
+      quantity: int,
+      idempotency_key: str,
+      token_category: str | None = None
     ):
         # -------------------------------------------------
         # 1. Check idempotency
@@ -161,6 +162,7 @@ class MeterService:
         event = UsageEvent(
             tenant_id=tenant_id,
             metric_name=metric_name,
+            token_category=token_category,
             quantity=quantity,
             idempotency_key=idempotency_key,
         )

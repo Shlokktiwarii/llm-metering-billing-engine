@@ -4,6 +4,7 @@ from uuid import UUID
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from services.pricing import PricingService
 
 from models import subscription
 from models.plan import Plan
@@ -23,53 +24,91 @@ class BillingService:
 
     def get_current_usage(self, tenant_id: UUID) -> dict:
 
-        subscription = (
-            self.db.query(Subscription)
-            .filter(
-                Subscription.tenant_id == tenant_id,
-                Subscription.status == "active",
-            )
-            .first()
+      subscription = (
+        self.db.query(Subscription)
+        .filter(
+            Subscription.tenant_id == tenant_id,
+            Subscription.status == "active",
         )
+        .first()
+    )
 
-        if subscription is None:
-            raise ValueError("No active subscription found")
+      if subscription is None:
+        raise ValueError("No active subscription found")
 
-        api_calls = (
-            self.db.query(
-                func.coalesce(func.sum(UsageEvent.quantity), 0)
-            )
-            .filter(
-                UsageEvent.tenant_id == tenant_id,
-                UsageEvent.metric_name == "api_call",
-                UsageEvent.created_at
-                >= subscription.current_period_start,
-                UsageEvent.created_at
-                < subscription.current_period_end,
-            )
-            .scalar()
+    # ---------------------------------------------------------
+    # API CALL USAGE
+    # ---------------------------------------------------------
+
+      api_calls = (
+        self.db.query(
+            func.coalesce(func.sum(UsageEvent.quantity), 0)
         )
-
-        ai_tokens = (
-            self.db.query(
-                func.coalesce(func.sum(UsageEvent.quantity), 0)
-            )
-            .filter(
-                UsageEvent.tenant_id == tenant_id,
-                UsageEvent.metric_name == "ai_token",
-                UsageEvent.created_at
-                >= subscription.current_period_start,
-                UsageEvent.created_at
-                < subscription.current_period_end,
-            )
-            .scalar()
+        .filter(
+            UsageEvent.tenant_id == tenant_id,
+            UsageEvent.metric_name == "api_call",
+            UsageEvent.created_at
+            >= subscription.current_period_start,
+            UsageEvent.created_at
+            < subscription.current_period_end,
         )
+        .scalar()
+    )
 
-        return {
-            "api_calls": api_calls,
-            "ai_tokens": ai_tokens,
-        }
+    # ---------------------------------------------------------
+    # AI TOKEN USAGE BY CATEGORY
+    # ---------------------------------------------------------
 
+      token_rows = (
+        self.db.query(
+            UsageEvent.token_category,
+            func.coalesce(
+                func.sum(UsageEvent.quantity),
+                0,
+            ),
+        )
+        .filter(
+            UsageEvent.tenant_id == tenant_id,
+            UsageEvent.metric_name == "ai_token",
+            UsageEvent.created_at
+            >= subscription.current_period_start,
+            UsageEvent.created_at
+            < subscription.current_period_end,
+        )
+        .group_by(UsageEvent.token_category)
+        .all()
+    )
+
+      token_usage = {
+        "input": 0,
+        "cached_input": 0,
+        "output": 0,
+        "reasoning": 0,
+    }
+
+      for category, quantity in token_rows:
+        if category in token_usage:
+            token_usage[category] = quantity
+
+    # ---------------------------------------------------------
+    # AI TOKEN COST
+    # ---------------------------------------------------------
+
+      ai_token_cost = PricingService.calculate_ai_cost(
+        input_tokens=token_usage["input"],
+        cached_input_tokens=token_usage["cached_input"],
+        output_tokens=token_usage["output"],
+        reasoning_tokens=token_usage["reasoning"],
+    )
+
+      ai_tokens = sum(token_usage.values())
+
+      return {
+        "api_calls": api_calls,
+        "ai_tokens": ai_tokens,
+        "ai_token_cost": ai_token_cost,
+        "token_breakdown": token_usage,
+    }
     # ---------------------------------------------------------
     # CREATE SUBSCRIPTION
     # ---------------------------------------------------------
@@ -218,6 +257,7 @@ class BillingService:
 
        api_used = usage["api_calls"]
        ai_used = usage["ai_tokens"]
+       ai_cost = usage["ai_token_cost"]
 
        return {
            "tenant_id": str(tenant_id),
@@ -250,7 +290,9 @@ class BillingService:
                        plan.ai_token_quota - ai_used,
                        0,
                    ),
-               },
+                   "cost": ai_cost,
+                   "breakdown": usage["token_breakdown"],
+                },
            },
        }
     def renew_subscription(

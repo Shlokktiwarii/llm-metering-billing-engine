@@ -1,10 +1,11 @@
-from uuid import UUID
-
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
 from db.database import get_db
+from dependencies.auth import get_current_tenant
+from models.tenant import Tenant
 from services.metering import MeterService
+
 
 router = APIRouter(
     prefix="/generate",
@@ -14,9 +15,12 @@ router = APIRouter(
 
 @router.post("/")
 def generate(
-    tenant_id: UUID,
     quantity: int = 1,
-    idempotency_key: str = Header(..., alias="Idempotency-Key"),
+    idempotency_key: str = Header(
+        ...,
+        alias="Idempotency-Key",
+    ),
+    tenant: Tenant = Depends(get_current_tenant),
     db: Session = Depends(get_db),
 ):
     if quantity <= 0:
@@ -29,7 +33,7 @@ def generate(
 
     try:
         event, created = meter.record(
-            tenant_id=tenant_id,
+            tenant_id=tenant.id,
             metric_name="api_call",
             quantity=quantity,
             idempotency_key=idempotency_key,
