@@ -1,6 +1,6 @@
 # Billing & Metering Engine
 
-A production-oriented **usage metering and billing backend** built with **Python, FastAPI, PostgreSQL, SQLAlchemy, Alembic, Pytest, and Docker**.
+A backend system for usage metering and billing, designed around multi-tenancy, quota enforcement, idempotency, concurrency control, and asynchronous background processing.
 
 The system is designed for SaaS and API-based applications where customers are charged according to their resource consumption. It provides the core backend infrastructure required to record usage, calculate charges, enforce quotas, and integrate with a payment provider.
 
@@ -8,7 +8,7 @@ The system is designed for SaaS and API-based applications where customers are c
 
 ## 📸 Project Overview
 
-![Billing & Metering Engine Architecture](docs/images/architecture.png)
+![Billing & Metering Engine Architecture](docs/images/Sys_architecture.png)
 
 ---
 
@@ -33,45 +33,51 @@ The system is designed for SaaS and API-based applications where customers are c
 The application follows a layered backend architecture that separates API handling, business logic, database operations, billing, and payment concerns.
 
 ```text
-                    ┌─────────────────────┐
-                    │       Client        │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │       FastAPI       │
-                    │        API          │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │  Application Logic  │
-                    └──────────┬──────────┘
-                               │
-                 ┌─────────────┴─────────────┐
-                 │                           │
-                 ▼                           ▼
-       ┌───────────────────┐       ┌───────────────────┐
-       │  Usage Metering   │       │      Billing      │
-       └─────────┬─────────┘       └─────────┬─────────┘
-                 │                           │
-                 └─────────────┬─────────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │     PostgreSQL      │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │   Payment Gateway   │
-                    │      Adapter        │
-                    └─────────────────────┘
+                    ┌─────────────────┐
+                    │     Client      │
+                    └────────┬────────┘
+                             │
+                             ▼
+                    ┌─────────────────┐
+                    │     FastAPI     │
+                    │      REST       │
+                    └────────┬────────┘
+                             │
+          ┌──────────────────┼──────────────────┐
+          │                  │                  │
+          ▼                  ▼                  ▼
+     Authentication      Metering            Billing
+          │                  │                  │
+          │                  └────────┬─────────┘
+          │                           │
+          │                           ▼
+          │                    ┌─────────────┐
+          │                    │ PostgreSQL  │
+          │                    └─────────────┘
+          │
+          │
+          │        Background Processing
+          │
+          │     ┌───────────────────────┐
+          │     │     Celery Beat       │
+          │     │  Scheduled Tasks      │
+          │     └───────────┬───────────┘
+          │                 │
+          │                 ▼
+          │          ┌─────────────┐
+          │          │    Redis    │
+          │          │    Broker   │
+          │          └──────┬──────┘
+          │                 │
+          │                 ▼
+          │          ┌─────────────┐
+          │          │    Celery   │
+          │          │    Worker   │
+          │          └──────┬──────┘
+          │                 │
+          │                 ▼
+          │            PostgreSQL
 ```
-
-### Architecture Screenshot
-
-![System Architecture](docs/images/architecture.png)
 
 ---
 
@@ -356,78 +362,6 @@ alembic history
 
 ---
 
-# 🚀 Local Development
-
-## 1. Clone the repository
-
-```bash
-git clone <YOUR_GITHUB_REPOSITORY_URL>
-cd <YOUR_PROJECT_DIRECTORY>
-```
-
-## 2. Create a virtual environment
-
-### Windows
-
-```bash
-python -m venv .venv
-.venv\Scripts\activate
-```
-
-### Linux / macOS
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-## 3. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-## 4. Configure environment variables
-
-Create a `.env` file in the project root.
-
-Example:
-
-```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/billing
-```
-
-Payment gateway credentials should also be provided through environment variables when required.
-
-Example:
-
-```env
-RAZORPAY_KEY_ID=<your-key-id>
-RAZORPAY_KEY_SECRET=<your-key-secret>
-```
-
-> Never commit real credentials or secrets to GitHub.
-
-## 5. Apply database migrations
-
-```bash
-alembic upgrade head
-```
-
-## 6. Start the API
-
-```bash
-uvicorn app.main:app --reload
-```
-
-The API will be available at:
-
-```text
-http://localhost:8000
-```
-
----
-
 # 📁 Project Structure
 
 ```text
@@ -585,54 +519,6 @@ Potential future infrastructure improvements include:
 
 ---
 
-# 🔮 Future Improvements
-
-Planned or potential improvements include:
-
-### Metering
-
-* [ ] High-throughput usage ingestion
-* [ ] Batch usage ingestion
-* [ ] Usage aggregation workers
-* [ ] Event deduplication
-* [ ] Additional usage dimensions
-
-### Billing
-
-* [ ] Invoice generation
-* [ ] Billing-period management
-* [ ] Tiered pricing
-* [ ] Volume pricing
-* [ ] Credits and discounts
-* [ ] Tax calculation
-
-### Quotas
-
-* [ ] Strong atomic quota enforcement
-* [ ] Multiple quota types
-* [ ] Per-user quotas
-* [ ] Per-organization quotas
-* [ ] Soft and hard limits
-
-### Payments
-
-* [ ] Payment webhooks
-* [ ] Payment verification
-* [ ] Refund handling
-* [ ] Failed payment handling
-* [ ] Multiple payment providers
-
-### Infrastructure
-
-* [ ] Background job processing
-* [ ] Redis integration
-* [ ] Message queues
-* [ ] Production observability
-* [ ] Horizontal scaling
-* [ ] Database partitioning
-
----
-
 # 🎯 Engineering Goals
 
 This project focuses on solving backend infrastructure problems rather than implementing a basic CRUD application.
@@ -689,6 +575,8 @@ Through this project, the following backend engineering concepts are demonstrate
 | Pytest         | Testing                     |
 | Docker         | Containerization            |
 | Docker Compose | Multi-container development |
+| Redis          | Message Broker              |
+| Celery         | Background work             |
 | Razorpay       | Payment gateway foundation  |
 
 ---
@@ -708,42 +596,9 @@ Through this project, the following backend engineering concepts are demonstrate
 * [x] Dockerfile
 * [x] Docker Compose setup
 * [x] Payment gateway abstraction
-* [x] Razorpay gateway component/foundation
-
-### Next Improvements
-
-* [ ] Stronger atomic quota enforcement
-* [ ] Background usage processing
-* [ ] Advanced usage aggregation
-* [ ] Invoice lifecycle
-* [ ] Payment webhooks
-* [ ] Redis/message queue integration
-* [ ] Production observability
-* [ ] Horizontal scaling
-
----
-
-# 🤝 Contributing
-
-Contributions and improvements are welcome.
-
-For significant changes:
-
-1. Create a new branch.
-2. Implement the change.
-3. Add or update tests.
-4. Run the test suite.
-5. Verify the Docker environment.
-6. Commit the changes.
-7. Open a pull request with a clear description.
-
----
-
-# 📄 License
-
-This project is currently intended for educational and portfolio purposes.
-
-If this repository is released as open source, add the appropriate license here.
+* [x] Razorpay gateway component
+* [x] Background usage processing
+* [x] Redis/message queue integration
 
 ---
 
