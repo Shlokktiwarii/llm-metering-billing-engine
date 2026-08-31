@@ -148,3 +148,20 @@ def cancel_subscription(
             status_code=400,
             detail=str(exc),
         )
+@router.get("/{tenant_id}/billing")
+def get_billing_summary(
+    tenant_id: UUID,
+    db: Session = Depends(get_db),
+):
+    billing = BillingService(db)
+
+    try:
+        return billing.get_billing_summary(
+            tenant_id=tenant_id,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        )

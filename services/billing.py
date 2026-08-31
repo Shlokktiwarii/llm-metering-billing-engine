@@ -5,6 +5,7 @@ from uuid import UUID
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from models import subscription
 from models.plan import Plan
 from models.subscription import Subscription
 from models.tenant import Tenant
@@ -165,31 +166,134 @@ class BillingService:
             raise ValueError(
                 "Tenant is already subscribed to this plan"
             )
-        
+
         subscription.plan_id = new_plan_id
         subscription.updated_at = datetime.now(timezone.utc)
+        self.db.commit()
+        self.db.refresh(subscription)
+
+        return subscription
 
     def cancel_subscription(
-       self,
-       tenant_id: UUID,
-       ) -> Subscription:
+        self,
+        tenant_id: UUID,
+    ) -> Subscription:
 
         subscription = (
+            self.db.query(Subscription)
+            .filter(
+                Subscription.tenant_id == tenant_id,
+                Subscription.status == "active",
+            )
+            .first()
+        )
+
+        if subscription is None:
+            raise ValueError("No active subscription found")
+
+        subscription.status = "cancelled"
+        subscription.updated_at = datetime.now(timezone.utc)
+        self.db.commit()
+        self.db.refresh(subscription)
+
+        return subscription
+
+    def get_billing_summary(self, tenant_id: UUID) -> dict:
+
+       subscription = (
+           self.db.query(Subscription)
+           .filter(
+               Subscription.tenant_id == tenant_id,
+               Subscription.status == "active",
+           )
+           .first()
+       )
+
+       if subscription is None:
+           raise ValueError("No active subscription found")
+
+       plan = subscription.plan
+
+       usage = self.get_current_usage(tenant_id)
+
+       api_used = usage["api_calls"]
+       ai_used = usage["ai_tokens"]
+
+       return {
+           "tenant_id": str(tenant_id),
+           "plan": {
+               "id": plan.id,
+               "name": plan.name,
+           },
+           "subscription": {
+               "status": subscription.status,
+               "current_period_start": (
+                   subscription.current_period_start.isoformat()
+               ),
+               "current_period_end": (
+                   subscription.current_period_end.isoformat()
+               ),
+           },
+           "usage": {
+               "api_calls": {
+                   "used": api_used,
+                   "quota": plan.api_call_quota,
+                   "remaining": max(
+                       plan.api_call_quota - api_used,
+                       0,
+                   ),
+               },
+               "ai_tokens": {
+                   "used": ai_used,
+                   "quota": plan.ai_token_quota,
+                   "remaining": max(
+                       plan.ai_token_quota - ai_used,
+                       0,
+                   ),
+               },
+           },
+       }
+    def renew_subscription(
+      self,
+      tenant_id: UUID,
+    ) -> Subscription:
+
+       subscription = (
         self.db.query(Subscription)
         .filter(
             Subscription.tenant_id == tenant_id,
             Subscription.status == "active",
         )
         .first()
-        )
+    )
 
-        if subscription is None:
-          raise ValueError("No active subscription found")
+       if subscription is None:
+         raise ValueError("No active subscription found")
 
-        subscription.status = "cancelled"
-        subscription.updated_at = datetime.now(timezone.utc)
+       now = datetime.now(timezone.utc)
 
-        self.db.commit()
-        self.db.refresh(subscription)
+    # Make sure the subscription has a valid billing period
+       if (
+          subscription.current_period_start is None
+          or subscription.current_period_end is None
+        ):
+          raise ValueError("Subscription has no billing period")
 
-        return subscription
+    # Renewal should only happen after the current period ends
+       if now < subscription.current_period_end:
+         raise ValueError("Subscription period has not ended")
+
+    # Move the period forward by 30 days
+       old_period_end = subscription.current_period_end
+
+       subscription.current_period_start = old_period_end
+       subscription.current_period_end = (
+        old_period_end + timedelta(days=30)
+      )
+
+       subscription.updated_at = now
+
+       self.db.commit()
+       self.db.refresh(subscription)
+
+       return subscription
